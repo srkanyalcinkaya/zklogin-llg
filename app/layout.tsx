@@ -11,6 +11,7 @@ const inter = Inter({ subsets: ['latin'] });
 
 const { networkConfig } = createNetworkConfig({
   devnet: { url: getFullnodeUrl("devnet") },
+  mainnet: { url: getFullnodeUrl("mainnet") },
 });
 const queryClient = new QueryClient();
 
@@ -23,7 +24,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <QueryClientProvider client={queryClient}>
-          <SuiClientProvider networks={networkConfig} network="devnet">
+          <SuiClientProvider networks={networkConfig} network="mainnet">
             <AuthProvider>{children}</AuthProvider>
           </SuiClientProvider>
         </QueryClientProvider>

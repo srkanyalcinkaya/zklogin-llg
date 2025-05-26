@@ -40,12 +40,18 @@ export default function Dashboard() {
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold">Dashboard</h1>
-          <button
-            onClick={logout}
-            className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition-colors"
-          >
-            Logout
-          </button>
+          <div className="flex items-center gap-4">
+            <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium flex flex-row items-center gap-2">
+              <div className='h-3 w-3 rounded-full bg-green-600 animate-bounce     ' />
+              Mainnet
+            </div>
+            <button
+              onClick={logout}
+              className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition-colors"
+            >
+              Logout
+            </button>
+          </div>
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow-md mb-6 text-black">
@@ -116,7 +122,7 @@ export default function Dashboard() {
             <div className="mt-4 p-3 bg-green-100 text-green-700 rounded">
               <p className="font-medium">Transaction Successful!</p>
               <a
-                href={`https://suiscan.xyz/devnet/tx/${txResult.digest}`}
+                href={`https://suiscan.xyz/mainnet/tx/${txResult.digest}`}
                 target="_blank"
                 className='text-blue-500 underline'
               >

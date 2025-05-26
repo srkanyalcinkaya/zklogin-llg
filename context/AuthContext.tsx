@@ -28,6 +28,7 @@ interface AuthContextType {
   getZkProof: () => Promise<any>;
   sendTransaction: (recipientAddress: string, amount: number) => Promise<any>;
   addressBalance: any;
+  handledemo: () => Promise<any>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -50,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     {
       enabled: Boolean(userAddress),
-      refetchInterval: 1500,
+      refetchInterval: 10000,
     }
   );
   const fetchZkProof = async (requestData: any) => {
@@ -73,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const privateKey = window.sessionStorage.getItem(
       KEY_PAIR_SESSION_STORAGE_KEY
     );
-    
+
     if (privateKey) {
       try {
         const ephemeralKeyPair = Ed25519Keypair.fromSecretKey(
@@ -99,7 +100,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setEphemeralKeyPair(ephemeralKeyPair);
 
       const { epoch } = await suiClient.getLatestSuiSystemState();
+      if (!epoch) {
+        throw new Error('Failed to get epoch from Sui network');
+      }
+      
       const epochNumber = Number(epoch);
+      if (isNaN(epochNumber)) {
+        throw new Error('Invalid epoch number received from Sui network');
+      }
+
       const newRandomness = generateRandomness();
       const newNonce = generateNonce(ephemeralKeyPair.getPublicKey(), epochNumber, newRandomness);
 
@@ -115,12 +124,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&response_type=id_token&redirect_uri=${redirectUrl}&scope=openid&nonce=${newNonce}`;
           break;
       }
-      window.sessionStorage.setItem('zklogin-prelogin', JSON.stringify({
-        ephemeralKeyPair: ephemeralKeyPair,
+
+      const preloginData = {
         maxEpoch: epochNumber,
         randomness: newRandomness,
-        nonce: newNonce
-      }));
+        nonce: newNonce,
+        ephemeralKeyPair: ephemeralKeyPair
+      };
+
+      window.sessionStorage.setItem('zklogin-prelogin', JSON.stringify(preloginData));
 
       window.location.href = authUrl;
     } catch (error) {
@@ -132,16 +144,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const handleJwt = async (token: string) => {
     try {
       const preloginData = sessionStorage.getItem('zklogin-prelogin');
-      const { maxEpoch, randomness, nonce, ephemeralKeyPair } = preloginData
-        ? JSON.parse(preloginData)
-        : { maxEpoch: null, randomness: null, nonce: null, ephemeralKeyPair: null };
+
+      if (!preloginData) {
+        throw new Error('No prelogin data found');
+      }
+
+      let parsedData;
+      try {
+        parsedData = JSON.parse(preloginData);
+      } catch (e) {
+        console.error('Failed to parse prelogin data:', e);
+        throw new Error('Invalid prelogin data format');
+      }
+
+      const { maxEpoch, randomness, nonce, ephemeralKeyPair } = parsedData;
+
+      if (maxEpoch === undefined || maxEpoch === null) {
+        throw new Error('No maxEpoch found in prelogin data');
+      }
 
       const decoded = jwtDecode(token);
       
-      // Kullanıcı için önceden kaydedilmiş salt'ı kontrol et
       let userSalt = sessionStorage.getItem(`user-salt-${decoded.sub}`);
       if (!userSalt) {
-        // Eğer salt yoksa yeni bir tane oluştur ve kaydet
         userSalt = generateRandomness();
         sessionStorage.setItem(`user-salt-${decoded.sub}`, userSalt);
       }
@@ -149,11 +174,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { jwtToAddress } = await import('@mysten/sui/zklogin');
       const address = jwtToAddress(token, userSalt);
 
+      const epochNumber = Number(maxEpoch);
+      if (isNaN(epochNumber)) {
+        throw new Error('Invalid maxEpoch value in prelogin data');
+      }
+
+      setMaxEpoch(epochNumber);
       setJwt(token);
       setSalt(userSalt);
       setUserAddress(address);
       setIsAuthenticated(true);
-      setMaxEpoch(maxEpoch);
       setRandomness(randomness);
       setNonce(nonce);
 
@@ -164,7 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       sessionStorage.setItem('zklogin-session', JSON.stringify({
-        maxEpoch,
+        maxEpoch: epochNumber,
         nonce,
         jwt: token,
         salt: userSalt,
@@ -215,7 +245,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const sendTransaction = async (recipientAddress: string, amount: number) => {
     if (!jwt || !salt || !ephemeralKeyPair || !maxEpoch) {
-      throw new Error('Missing required authentication datas');
+      console.error('Eksik kimlik doğrulama verileri:', {
+        jwt: !!jwt,
+        salt: !!salt,
+        ephemeralKeyPair: !!ephemeralKeyPair,
+        maxEpoch: !!maxEpoch
+      });
+      // Kullanıcıyı bilgilendir ve yeniden giriş yapmaya yönlendir
+      return;
     }
     const zkProof = await getZkProof();
     const txb = new TransactionBlock();
@@ -255,12 +292,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return executeRes;
   };
-
+  const handledemo = async () => {
+    const { epoch } = await suiClient.getLatestSuiSystemState();
+  }
   useEffect(() => {
     const sessionData = sessionStorage.getItem('zklogin-session');
     if (sessionData) {
       const {
-        ephemeralPrivateKey,
         maxEpoch: storedMaxEpoch,
         nonce: storedNonce,
         jwt: storedJwt,
@@ -269,12 +307,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         randomness: storedRandomness,
       } = JSON.parse(sessionData);
 
-      if (ephemeralPrivateKey) {
-        const keyPair = Ed25519Keypair.fromSecretKey(ephemeralPrivateKey);
-        setEphemeralKeyPair(keyPair);
+      // maxEpoch değerini sayıya dönüştür
+      const epochNumber = Number(storedMaxEpoch);
+      if (!isNaN(epochNumber)) {
+        setMaxEpoch(epochNumber);
       }
 
-      setMaxEpoch(storedMaxEpoch);
       setNonce(storedNonce);
       setJwt(storedJwt);
       setSalt(storedSalt);
@@ -306,6 +344,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         getZkProof,
         sendTransaction,
         addressBalance,
+        handledemo
       }}
     >
       {children}
