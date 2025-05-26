@@ -1,0 +1,36 @@
+{
+  "name": "sui-zklogin-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@mysten/dapp-kit": "^0.9.0",
+    "@mysten/sui": "^0.0.0-experimental-20250523140227",
+    "@mysten/sui.js": "^0.46.1",
+    "@mysten/wallet-standard": "^0.15.2",
+    "@mysten/zklogin": "^0.3.4",
+    "@tanstack/react-query": "^5.77.0",
+    "axios": "^1.9.0",
+    "bignumber.js": "^9.3.0",
+    "jose": "^6.0.11",
+    "jwt-decode": "^4.0.0",
+    "next": "15.3.2",
+    "node-fetch": "^3.3.2",
+    "openid-client": "^6.5.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
